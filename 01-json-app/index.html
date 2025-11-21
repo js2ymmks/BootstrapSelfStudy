@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang='ja'>
+
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>Bootstrap demo</title>
+  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css' rel='stylesheet'
+    integrity='sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB' crossorigin='anonymous'>
+  <style>
+  </style>
+</head>
+
+<body>
+  <div class='container'>
+    <div id="stage"></div>
+  </div>
+  <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js'
+    integrity='sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI'
+    crossorigin='anonymous'></script>
+
+  <script>
+    const demoAppJson = {
+      slides: [
+        {
+          index: 0,
+          imagePath: '../assets/img/rac/01401.png',
+          alt: 'STEP-01',
+          tooltipTarget: 'targetArea01401',
+          tooltipContent: 'tooltipContent001',
+          footerContent: '<div id="stage"></div>',
+        },
+        {
+          index: 1,
+          imagePath: '../assets/img/rac/01402.png',
+          alt: 'STEP-02',
+          tooltipTarget: 'targetArea01402',
+          tooltipContent: 'tooltipContent002',
+          footerContent: 'footerContent002',
+        },
+        {
+          index: 2,
+          imagePath: '../assets/img/rac/01403.png',
+          alt: 'STEP-03',
+          tooltipTarget: 'targetArea01403',
+          tooltipContent: 'tooltipContent003',
+          footerContent: 'footerContent003',
+        },
+        {
+          index: 3,
+          imagePath: '../assets/img/rac/01501.png',
+          alt: 'STEP-04',
+          tooltipTarget: 'targetArea01501',
+          tooltipContent: 'tooltipContent004',
+          footerContent: '<footerContent004',
+        },
+        {
+          index: 4,
+          imagePath: '../assets/img/rac/01502.png',
+          alt: 'STEP-05',
+          tooltipTarget: 'targetArea01502',
+          tooltipContent: 'tooltipContent005',
+          footerContent:
+            'footerContent005',
+        },
+      ],
+    };
+    // ここから追加
+    document.addEventListener('DOMContentLoaded', () => {
+      const stage = document.getElementById('stage');
+      if (!stage) return;
+
+      // demoAppJson.slides[1].tooltipContent の値を innerText に設定
+      stage.innerText = demoAppJson.slides[1].tooltipContent;
+    });
+  </script>
+</body>
+
+</html>
