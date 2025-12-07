@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iOS-style Wheel Picker (Bootstrap 5)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* Basic page layout */
+    body { padding: 2rem; background:#f8f9fa; }
+
+    /* Picker modal content */
+    .wheel-modal .modal-dialog { max-width: 320px; }
+    .wheel-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 1rem; }
+    .wheel-body { padding: 0.75rem 1rem 1.25rem; }
+
+    /* Wheel container */
+    .wheel-viewport{
+      height: 180px; /* visible area */
+      position:relative;
+      overflow-y:auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none; /* Firefox */
+    }
+    .wheel-viewport::-webkit-scrollbar{ display:none; }
+
+    .wheel-item{
+      height: 36px;
+      line-height:36px;
+      text-align:center;
+      font-size:1.25rem;
+      scroll-snap-align: center;
+      user-select:none;
+    }
+
+    /* Selection indicator (the "picker" line) */
+    .wheel-overlay{
+      pointer-events:none;
+      position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
+      height:36px; border-top:1px solid rgba(0,0,0,0.08); border-bottom:1px solid rgba(0,0,0,0.08);
+      background:linear-gradient(0deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+    }
+
+    /* top/bottom fade like iOS */
+    .wheel-fade-top, .wheel-fade-bottom{
+      position:absolute; left:0; right:0; height:48px; pointer-events:none;
+    }
+    .wheel-fade-top{ top:0; background:linear-gradient(to bottom, rgba(248,249,250,1), rgba(248,249,250,0)); }
+    .wheel-fade-bottom{ bottom:0; background:linear-gradient(to top, rgba(248,249,250,1), rgba(248,249,250,0)); }
+
+    /* highlight selected item style via JS */
+    .wheel-item.selected{ font-weight:400; font-size:1.4rem; }
+
+    /* small helper text and demo button */
+    .demo-controls{ max-width: 400px; }
+  </style>
+</head>
+<body>
+  <h4>iOSスタイル ホイールピッカー（Bootstrap5 / バニラJS）</h4>
+  <p class="text-muted">下のボタンでピッカーを開き、OKで選択値を受け取ります。</p>
+
+  <div class="demo-controls mb-3">
+    <button id="openPickerBtn" class="btn btn-primary">Open Wheel Picker</button>
+    <span class="ms-3">選択値: <strong id="pickedValue">--</strong></span>
+  </div>
+
+  <!-- Modal (wheel picker) -->
+  <div class="modal fade wheel-modal" id="wheelPickerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="wheel-header">
+          <button type="button" class="btn btn-link" data-bs-dismiss="modal" id="pickerCancel">Cancel</button>
+          <div class="fw-semibold">温度</div>
+          <button type="button" class="btn btn-link" id="pickerOk">OK</button>
+        </div>
+        <div class="wheel-body">
+          <div style="position:relative">
+            <div class="wheel-viewport" id="wheelViewport" aria-label="Picker">
+              <!-- items injected by JS -->
+            </div>
+            <div class="wheel-fade-top"></div>
+            <div class="wheel-overlay"></div>
+            <div class="wheel-fade-bottom"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Configuration: change `options` to control values shown in the wheel
+    const options = Array.from({length: 31}, (_,i) => 16 + i); // 16..46 as example
+    const itemHeight = 36; // must match CSS .wheel-item height
+
+    const openBtn = document.getElementById('openPickerBtn');
+    const pickedValueEl = document.getElementById('pickedValue');
+    const viewport = document.getElementById('wheelViewport');
+    const pickerModalEl = document.getElementById('wheelPickerModal');
+    const pickerOk = document.getElementById('pickerOk');
+
+    const bsModal = new bootstrap.Modal(pickerModalEl);
+
+    // Build list with padding items so first and last can center
+    function buildWheel(){
+      viewport.innerHTML = '';
+      const padCount = Math.floor(viewport.clientHeight / itemHeight / 2);
+      for(let i=0;i<padCount;i++){
+        const d = document.createElement('div'); d.className='wheel-item'; d.innerHTML=''; viewport.appendChild(d);
+      }
+      options.forEach((val, idx) =>{
+        const el = document.createElement('div');
+        el.className = 'wheel-item';
+        el.setAttribute('data-value', val);
+        el.textContent = val;
+        viewport.appendChild(el);
+      });
+      for(let i=0;i<padCount;i++){
+        const d = document.createElement('div'); d.className='wheel-item'; d.innerHTML=''; viewport.appendChild(d);
+      }
+    }
+
+    // Snap-to-item logic: when scrolling stops, align the nearest item to center
+    let scrollTimer = null;
+
+    function snapToNearest(){
+      const rect = viewport.getBoundingClientRect();
+      const centerY = rect.top + rect.height/2;
+      const items = Array.from(viewport.querySelectorAll('.wheel-item'));
+      let nearest = null; let nearestDist = Infinity;
+      items.forEach(it =>{
+        const r = it.getBoundingClientRect();
+        const mid = r.top + r.height/2;
+        const d = Math.abs(mid - centerY);
+        if(d < nearestDist){ nearestDist = d; nearest = it; }
+      });
+      if(nearest){
+        // calculate scroll so that nearest's center aligns to viewport center
+        const currentScroll = viewport.scrollTop;
+        const viewportCenter = viewport.clientHeight/2;
+        const itemIndex = items.indexOf(nearest);
+        const itemCenterOffset = (itemIndex * itemHeight) + itemHeight/2;
+        const targetScroll = itemCenterOffset - viewportCenter;
+        viewport.scrollTo({ top: targetScroll, behavior:'smooth' });
+        highlightSelected(nearest);
+      }
+    }
+
+    function highlightSelected(selectedEl){
+      viewport.querySelectorAll('.wheel-item').forEach(it => it.classList.remove('selected'));
+      if(selectedEl && selectedEl.dataset && selectedEl.dataset.value !== undefined){
+        selectedEl.classList.add('selected');
+      }
+    }
+
+    // Debounced scroll end detection
+    viewport.addEventListener('scroll', ()=>{
+      if(scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(()=>{ snapToNearest(); }, 120);
+
+      // live highlight (not strictly required) - compute nearest quickly
+      const rect = viewport.getBoundingClientRect();
+      const centerY = rect.top + rect.height/2;
+      const items = Array.from(viewport.querySelectorAll('.wheel-item'));
+      let nearest = null; let nearestDist = Infinity;
+      items.forEach(it =>{
+        const r = it.getBoundingClientRect();
+        const mid = r.top + r.height/2;
+        const d = Math.abs(mid - centerY);
+        if(d < nearestDist){ nearestDist = d; nearest = it; }
+      });
+      if(nearest) highlightSelected(nearest);
+    });
+
+    // Open modal and position to a default value (center the first actual option)
+    openBtn.addEventListener('click', ()=>{
+      buildWheel();
+      // Wait for modal shown to compute sizes
+      bsModal.show();
+    });
+
+    // When shown, scroll to currently selected or middle option
+    pickerModalEl.addEventListener('shown.bs.modal', ()=>{
+      // ensure padding is recalculated
+      // find default index (for demo pick middle)
+      const defaultIndex = Math.floor(options.length/2);
+      // compute scroll top needed
+      const padCount = Math.floor(viewport.clientHeight / itemHeight / 2);
+      const targetIndex = padCount + defaultIndex;
+      const targetScroll = targetIndex * itemHeight - viewport.clientHeight/2 + itemHeight/2;
+      // small timeout to ensure layout
+      setTimeout(()=>{ viewport.scrollTop = targetScroll; snapToNearest(); }, 50);
+    });
+
+    // OK handler: read selected item and close
+    pickerOk.addEventListener('click', ()=>{
+      const selected = viewport.querySelector('.wheel-item.selected');
+      if(selected && selected.dataset && selected.dataset.value !== undefined){
+        const val = selected.dataset.value;
+        pickedValueEl.textContent = val;
+      }
+      bsModal.hide();
+    });
+
+    // Optional: double tap or click on item to select immediately
+    viewport.addEventListener('click', (e)=>{
+      const it = e.target.closest('.wheel-item');
+      if(!it) return;
+      if(it.dataset && it.dataset.value !== undefined){
+        // snap to clicked item
+        const items = Array.from(viewport.querySelectorAll('.wheel-item'));
+        const idx = items.indexOf(it);
+        const targetScroll = idx * itemHeight - viewport.clientHeight/2 + itemHeight/2;
+        viewport.scrollTo({ top: targetScroll, behavior:'smooth' });
+        highlightSelected(it);
+      }
+    });
+
+    // Accessibility: keyboard navigation
+    pickerModalEl.addEventListener('keydown', (ev)=>{
+      const selected = viewport.querySelector('.wheel-item.selected');
+      const items = Array.from(viewport.querySelectorAll('.wheel-item'));
+      let idx = selected ? items.indexOf(selected) : -1;
+      if(ev.key === 'ArrowDown'){ ev.preventDefault(); idx = Math.min(items.length-1, idx+1); const targetScroll = idx*itemHeight - viewport.clientHeight/2 + itemHeight/2; viewport.scrollTo({top:targetScroll, behavior:'smooth'}); }
+      if(ev.key === 'ArrowUp'){ ev.preventDefault(); idx = Math.max(0, idx-1); const targetScroll = idx*itemHeight - viewport.clientHeight/2 + itemHeight/2; viewport.scrollTo({top:targetScroll, behavior:'smooth'}); }
+      if(ev.key === 'Enter'){ ev.preventDefault(); pickerOk.click(); }
+    });
+
+    // Expose simple API (for further integration) via window
+    window.simpleWheelPicker = {
+      open(){ openBtn.click(); },
+      setOptions(newOptions){
+        if(Array.isArray(newOptions)){
+          options.length = 0; newOptions.forEach(v=>options.push(v));
+        }
+      },
+      getValue(){ const sel = viewport.querySelector('.wheel-item.selected'); return sel ? sel.dataset.value : null; }
+    };
+  </script>
+</body>
+</html>
