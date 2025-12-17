@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>温度設定ボタン</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:#f4f5f8;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  .temp-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background:#ffffff;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  }
+
+  .temp-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid #d2d7e0;
+    background:#fff;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 18px;
+    font-weight: 600;
+    color:#555;
+    user-select: none;
+  }
+
+  .temp-btn:active {
+    transform: translateY(1px);
+  }
+
+  .temp-display {
+    min-width: 110px;
+    text-align: center;
+    color:#333;
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 1px;
+  }
+
+  /* 整数部分 */
+  .temp-int {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  /* 小数部分：整数の半分のサイズ（22px → 11px） */
+  .temp-dec {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    vertical-align: baseline;
+  }
+
+  .temp-unit {
+    font-size: 14px;
+    margin-left: 2px;
+    color:#666;
+  }
+
+  /* 範囲外になったときボタンを半透明に */
+  .temp-btn.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="temp-control" aria-label="温度設定">
+  <button type="button" class="temp-btn" id="btnMinus" aria-label="温度を下げる">−</button>
+
+  <div class="temp-display" aria-hidden="false">
+    <span class="temp-int" id="tempInt">23</span>
+    <span class="temp-dec" id="tempDec">.0</span>
+    <span class="temp-unit">℃</span>
+  </div>
+
+  <button type="button" class="temp-btn" id="btnPlus" aria-label="温度を上げる">＋</button>
+</div>
+
+<script>
+  // 設定パラメータ
+  const MIN_TEMP = 16.0;
+  const MAX_TEMP = 31.0;
+  const STEP     = 0.5;
+  const INITIAL  = 23.0; // 初期値（お好みで）
+
+  const btnMinus = document.getElementById('btnMinus');
+  const btnPlus  = document.getElementById('btnPlus');
+  const tempIntEl = document.getElementById('tempInt');
+  const tempDecEl = document.getElementById('tempDec');
+
+  let currentTemp = INITIAL;
+
+  // 値の丸め & クランプ
+  function clampTemp(value) {
+    const rounded = Math.round(value / STEP) * STEP;
+    return Math.min(MAX_TEMP, Math.max(MIN_TEMP, rounded));
+  }
+
+  // 表示の更新（整数部と小数部を分けて表示）
+  function updateDisplay() {
+    const fixed = currentTemp.toFixed(1); // 例: "23.5"
+    const [intPart, decPartRaw] = fixed.split('.');
+    const decPart = '.' + decPartRaw;     // ".5" のように
+
+    tempIntEl.textContent = intPart;
+    tempDecEl.textContent = decPart;
+
+    // 範囲端ならボタンを無効風に
+    if (currentTemp <= MIN_TEMP) {
+      btnMinus.classList.add('disabled');
+    } else {
+      btnMinus.classList.remove('disabled');
+    }
+
+    if (currentTemp >= MAX_TEMP) {
+      btnPlus.classList.add('disabled');
+    } else {
+      btnPlus.classList.remove('disabled');
+    }
+
+    // 必要ならここで他の処理に通知
+    // console.log('温度変更:', currentTemp);
+  }
+
+  // 温度変更用の関数
+  function changeTemp(diff) {
+    const next = clampTemp(currentTemp + diff);
+    if (next === currentTemp) return;
+    currentTemp = next;
+    updateDisplay();
+  }
+
+  // ボタンクリック
+  btnMinus.addEventListener('click', () => changeTemp(-STEP));
+  btnPlus .addEventListener('click', () => changeTemp( STEP));
+
+  // 初期表示
+  currentTemp = clampTemp(INITIAL);
+  updateDisplay();
+</script>
+
+</body>
+</html>
